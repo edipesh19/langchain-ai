@@ -1,42 +1,46 @@
-from tabnanny import verbose
+from typing import List
+
+from pydantic import BaseModel, Field
 
 from dotenv import load_dotenv
 import os
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
 os.environ["LANGSMITH_TRACING"] = "false"
-from langchain_core.prompts import PromptTemplate
+from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent
+from langchain_tavily import TavilySearch
 
 load_dotenv()
 
-@tool
-def get_current_weather(location: str) -> str:
-    """Get the current weather in a given location"""
-    return f"The weather in {location} is sunny"
+class Source(BaseModel):
+    """Schema for a source used by the agent"""
+
+    url: str = Field(description="The URL of the source")
+
+
+class AgentResponse(BaseModel):
+    """Schema for agent response with answer and sources"""
+
+    answer: str = Field(description="Thr agent's answer to the query")
+    sources: List[Source] = Field(
+        default_factory=list, description="List of sources used to generate the answer"
+    )
+
+llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0, verbose="True")
+tools = [TavilySearch()]
+agent = create_agent(model=llm, tools=tools, response_format=AgentResponse)
 
 def main():
     print("Hello from langchain-ai!")
-    print(os.getenv("GOOGLE_API_KEY"))
-    llm = ChatGoogleGenerativeAI(
-    model="gemini-3-flash-preview",
-    temperature=0.7,
-        verbose="True"
-)
-
-    # Simple invocation
-    messages = [
-        SystemMessage(content="You are a weather expert"),
-        HumanMessage(content="What is the weather in Tokyo?")
-    ]
-
-    # response = llm.invoke(messages)
-    tools = [get_current_weather]
-    agent = create_react_agent(llm, tools, debug=True)
-    final_answer = agent.invoke({"messages": [("user", "What is the weather of capital of india?")]})
-    print(f"Final Agent Answer: {final_answer}")
+    result = agent.invoke(
+        {
+            "messages": HumanMessage(
+                content="search for 3 job postings for an ai engineer using langchain in Bangalore India on linkedin and list their details?"
+            )
+        }
+    )
+    print(result)
     print("--------------------------------")
 
 if __name__ == "__main__":
