@@ -203,6 +203,7 @@ cython_debug/
 
 # Pycharm
 .idea/
+.vscode/
 
 # Marimo
 marimo/_static/
